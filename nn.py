@@ -1,87 +1,85 @@
 import numpy as np
 
-class NN():
-  def __init__(size_in, num_hidden_layers, size_hidden, size_out):
-    self.input_size = input_size
-    self.num_hidden_layers = hidden_layers
-    self.hidden_size = hidden_size
-    self.output_size = output_size
-
-    self.input_layer = InputLayer(self.input_size)
-    self.hidden_layers = []
-    # Instantiate the hidden layers
-    for i in range(hidden_layers):
-      if i == 0:
-        # input is the child for the first hidden layer
-        self.hidden_layers.append(Layer(self.hidden_size, self.input_layer))
-      else:
-        # Previous hidden layer is the child for each subsequent hidden layer
-        self.hidden_layers.append(Layer(self.hidden_size, self.hidden_layers[i-1]))
-    # Set the output layer with last hidden layer as its child
-    self.output_layer = Layer(output_size, hidden_layers[-1])
-
-    # instantiate blank LR, can be set in the train() method
-    self.lr = 0.0
-
-  def forward():
-    return True
-
-  def backward():
-    return True
-
-  def train():
-    return True
-
-  def test():
-    return True
-
-
 class Layer():
-  def __init__(self, size, child_layer, init):
+  def __init__(self, size, child_layer, init, add_bias=True):
     self.size = size
     self.child_layer = child_layer
-    # One bias for the layer ?
-    self.bias = 1
+    self.add_bias = add_bias
+
     # edges between nodes below and my activations; initialize weights randomly between a given value from its - to its +
     self.weight_matrix = np.random.uniform(low=-init, high=init, size=(self.child_layer.size, self.size))
+    if self.child_layer.add_bias:
+      self.weight_bias = np.random.uniform(low=-init, high=init, size=(self.size))
+
     # partial_deriv activations w.r.t. weights
+    # Note +1 to child size for bias
     self.weight_derivs = np.zeros([self.child_layer.size, self.size])
-    self.activations = np.ones(self.size)
+    if self.child_layer.add_bias:
+      self.weight_bias_derivs = np.zeros([self.size])
+
+    self.activations = np.zeros(self.size)
+    self.sigmoid_activations = np.zeros(self.size)
+
     # nodes above w.r.t. each activation
     self.derivs = np.zeros(self.size)
-    self.lr = 0.1
+    # Set here to be overridden when .forward() is called
+    self.lr = 0.0
 
   def forward(self):
     """
     Forward propogate the activations from the last layer
     to this layer by combining previous activations, weight parameters, bias, and applying
-    the nonlinear activation function.
-    """
+    the nonlinear activation function to each of those products.
+
+    print("ACTIVATIONS")
+    print(self.activations)
     print("WEIGHTS")
     print(self.weight_matrix)
-    self.activations = self._vectorized_sigmoid(self.child_layer.activations.T.dot(self.weight_matrix) + self.bias)
+    if self.child_layer.add_bias:
+      print("BIAS WEIGHTS")
+      print(self.weight_bias)
+    """
 
-  def backward(self, lr=0.1):
+    # Compute activations with dot product of activations below and connecting weights
+    self.activations = self.child_layer.sigmoid_activations.T.dot(self.weight_matrix)
+
+    # Add bias
+    if self.child_layer.add_bias:
+      self.activations += self.weight_bias
+
+    self.sigmoid_activations = self._vectorized_sigmoid(self.activations)
+
+  def backward(self, lr=0.9):
     """
     Backward propogate the error, updating the weights and bias of this layer
     """
     self.lr = lr
-    # Compute partial of my nodes w.r.t. my weights
+
+    # Compute L' w.r.t Node', to be multiplied by child activations
+    derivative_loss_wrt_derivative_activations = self.derivs * self._vectorized_derivative_sigmoid(self.activations)
+    # Compute partial deriv of my nodes w.r.t. my weights
     # Use np.outer to compute the matrix from the product of the 2 activations
-    self.weight_derivs = np.outer(self._vectorized_sigmoid(self.child_layer.activations), \
-                         self._vectorized_derivative_sigmoid(self.activations)) \
-                          * self.derivs * self.lr
+    self.weight_derivs = np.outer(self.child_layer.sigmoid_activations, \
+                          derivative_loss_wrt_derivative_activations) \
+                           * self.lr
+
+    if self.child_layer.add_bias:
+      self.weight_bias_derivs = derivative_loss_wrt_derivative_activations * self.lr
 
     # Compute partial deriv of my nodes w.r.t. my child_layer's nodes
-    self.child_layer.derivs = (self.derivs * self._vectorized_derivative_sigmoid(self.activations)).dot(self.weight_matrix.T)
+    self.child_layer.derivs = derivative_loss_wrt_derivative_activations.dot(self.weight_matrix.T)
 
     # Lastly, we can update the weights for this layer)
     self.weight_matrix -= self.weight_derivs
+    if self.child_layer.add_bias:
+      self.weight_bias -= self.weight_bias_derivs
 
   def _sigmoid(self, x):
-    return 1 / 1 + np.exp(-x)
+    #return np.tanh(x)
+    return 1 / (1 + np.exp(-x))
 
   def _derivative_sigmoid(self, x):
+    #return 1 - np.tanh(x)**2
     return self._sigmoid(x) * (1.0 - self._sigmoid(x))
 
   def _vectorized_sigmoid(self, X):
@@ -92,31 +90,38 @@ class Layer():
     return sig(X)
 
   def _vectorized_derivative_sigmoid(self, X):
-      """
-      Derivative sigmoid for each scalar in a numpy vector
-      """
-      deriv_sig = np.vectorize(self._derivative_sigmoid)
-      return deriv_sig(X)
-
-  def _softmax(self, x):
-    exponentials = [np.exp(p) for p in x]
-    denominator = sum(exponentials)
-    return [p / denominator for p in exponentials]
+    """
+    Derivative sigmoid for each scalar in a numpy vector
+    """
+    deriv_sig = np.vectorize(self._derivative_sigmoid)
+    return deriv_sig(X)
 
 
 class InputLayer(Layer):
-  def __init__(self, size):
+  def __init__(self, size, add_bias=True):
     self.size = size
-    # One bias for the layer
-    self.bias = 1
     self.weight_matrix = None
+    self.add_bias = add_bias
     # Instantiate an np array with the input values
     self.activations = np.ones(self.size)
 
   def forward(self, inputs):
+    """
+    Forward propogate the input layer
+    """
     self.activations = np.array(inputs)
 
+    #############################################################
+    ## Because we should not be taking nonlinearity
+    ## this will just be the same as the activations
+    ## We store this because the layer above does not
+    ## know whether its child is an input layer or a hidden layer
+    self.sigmoid_activations = np.array(inputs)
+
   def backward(self):
+    """
+    Override the parent Layer class with so the input layer does nothing
+    """
     None
 
 
@@ -131,13 +136,18 @@ class LossLayer(Layer):
 
   def _softmax(self, x):
     """
-    Softmax function;
+    Numerically Stable Softmax function.
 
     x is a list: the output activations
     """
-    exponentials = [np.exp(p) for p in x]
-    denominator = sum(exponentials)
-    return [p / denominator for p in exponentials]
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum(axis=0)
+
+  def _binary_cross_ent(self, y_hat, y):
+    return (-y * np.log(y_hat)) - ((1 - y) * np.log(1 - y_hat))
+
+  def _deriv_binary_cross_ent(self, y_hat, y):
+    return y_hat - y
 
   def _negative_log_likelihood(self, y_hat):
     """
@@ -146,6 +156,10 @@ class LossLayer(Layer):
     return -np.log(y_hat)
 
   def _deriv_negative_log_likelihood(self, y_hat):
+    """
+    Derivative of neg log likelihood, when given a softmax confidence
+    is just -1 / predicted probability
+    """
     return -1/y_hat
 
   def forward(self, targets):
@@ -153,20 +167,12 @@ class LossLayer(Layer):
     Compute the loss
     """
     # Make sure we have an NP array, so we can perform the vector math
-    targets = np.array(targets)
-    softmax = self._softmax(self.child_layer.activations)
-    print("CONFIDENCE: %.2f" % targets.dot(softmax))
-    # Because targets are 1 hot, this will just lookup the value of our softmax
-    # (essentially the classifier's confidence) for the correct class
-    self.loss = self._negative_log_likelihood(targets.dot(softmax))
+    self.loss = self._binary_cross_ent(self.child_layer.sigmoid_activations, targets)
 
   def backward(self, targets):
     """
-    Compute the derivative of the loss
+    Compute the derivative of the loss, and Loss' w.r.t. the output layer
     """
-    # Make sure we have an NP array, so we can perform the vector math
-    targets = np.array(targets)
-    softmax = self._softmax(self.child_layer.activations)
+    self.deriv_loss = self._deriv_binary_cross_ent(self.child_layer.sigmoid_activations, targets)
 
-    self.child_layer.derivs = self._deriv_negative_log_likelihood(targets.dot(softmax)) * \
-                              self._vectorized_sigmoid(self.child_layer.activations)
+    self.child_layer.derivs = self.deriv_loss * self.child_layer.sigmoid_activations
