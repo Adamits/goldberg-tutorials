@@ -1,1 +1,4 @@
 /practice
+*.pyc
+/conll_ud_data
+/pycache
