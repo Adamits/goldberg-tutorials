@@ -25,7 +25,6 @@ def get_window_counts(text, window):
 
     return {k: Counter(v) for k, v in window_dict.items()}
 
-
 def ppmi_matrix(sentences, window):
     """
     Returns a scipy sparse row matrix of PPMI
