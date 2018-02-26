@@ -12,7 +12,10 @@ class LSTMTagger(nn.Module):
         super(LSTMTagger, self).__init__()
         self.hidden_dim = hidden_dim
 
+        # Instantiate empty embeddings layer
         self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
+        # You can initialize with pretrained by:
+        # self.word_embeddings.weight = nn.Parameter(embeddings)
 
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
@@ -97,8 +100,7 @@ if __name__=='__main__':
             label = prepare_label(sentiment, sentiment2id)
 
             # Step 3. Run our forward pass.
-            scores = model(doc_in)
-            pred = scores
+            pred = model(doc_in)
 
             # Step 4. Pass in the computed scores, and true targets
             # to compute the loss, gradients, and update the parameters by
