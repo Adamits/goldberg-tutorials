@@ -48,12 +48,12 @@ class LSTMTagger(nn.Module):
         else:
             return (autograd.Variable(torch.zeros(1, 1, self.hidden_dim)), autograd.Variable(torch.zeros(1, 1, self.hidden_dim)))
 
-    def forward(self, sentence):
+    def forward(self, doc):
         # Get the embeddings for each word
-        embeds = self.word_embeddings(sentence)
+        embeds = self.word_embeddings(doc)
         # Run the LSTM
         lstm_out, self.hidden = self.lstm(
-            embeds.view(len(sentence), 1, -1), self.hidden)
+            embeds.view(len(doc), 1, -1), self.hidden)
         # Compute score distribution
         sentiment_space = self.hidden2label(lstm_out[-1])
         sentiment_scores = F.log_softmax(sentiment_space)
@@ -64,13 +64,27 @@ def prepare_sequence(seq, to_id):
     """
     Get a tensor of words
     """
-    ids = [to_id[w] for w in seq]
+    ids = []
+    for w in seq:
+        if w not in to_id.keys():
+            w = "UNK"
+
+        ids.append(to_id[w])
+
     tensor = torch.LongTensor(ids)
     return autograd.Variable(tensor)
 
 def prepare_label(label, to_id):
     return autograd.Variable(torch.LongTensor([to_id[label]]))
 
+def eval(preds, golds):
+    acc = 0
+    for pred, gold in zip(preds, golds):
+        print(pred, gold)
+        if pred == gold:
+            acc += 1
+
+    return acc / len(golds)
 if __name__=='__main__':
     EMBEDDING_DIM = 100
     HIDDEN_DIM = 100
@@ -95,7 +109,7 @@ if __name__=='__main__':
     #dataloader = DataLoader(data, batch_size=4,
     #                    shuffle=True, num_workers=4)
 
-    for i, epoch in enumerate(range(25)):
+    for i, epoch in enumerate(range(50)):
         print("EPOCH %i" % i)
         loss_tracker = []
         for doc, sentiment in data:
@@ -132,14 +146,27 @@ if __name__=='__main__':
 
         print("AVERAGE LOSS: %2f" % (sum(loss_tracker)/(len(loss_tracker))))
 
-    train_data, train_vocab = prepare_data("./aclimdb/test/", sample_size=20)
 
+    """
+    TEST THE MODEL OVER THE FIRST 5000 pos examples and 5000 neg examples from the test docs
+    """
+    train_data, train_vocab = prepare_data("./aclimdb/test/", sample_size=10000)
+
+    # For tracking preds
+    preds = []
+    golds = []
     for doc, sentiment in train_data:
         doc_in = prepare_sequence(doc, word2id)
         if USE_CUDA:
             doc_in = doc_in.cuda()
-        pred=model(doc_in)
+        pred=model(" ".join(doc_in))
+        # Get the predicted  class, from the log_softmax distribution
+        pred_label = pred.data.max(1)[1][0]        
+        preds.append(pred_label)
+        golds.append(sentiment2id[sentiment])
         
         print(doc)
-        print("TRUE SENTIMENT ID: %i", sentiment)
-        print("PREDICTED SENTIMENT SCORE: %i", pred)
+        print("TRUE SENTIMENT ID: %i" % sentiment2id[sentiment])
+        print("PREDICTED SENTIMENT SCORE: %i" % pred_label)
+
+    print("Accuracy: %.4f%%" % eval(preds, golds))

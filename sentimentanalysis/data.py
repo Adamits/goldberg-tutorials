@@ -16,7 +16,6 @@ def read_data(dirname, sent, sample_size=None):
         if sample_size is not None and i > sample_size:
             break
         if fn.endswith(".txt"):
-            print("Reading %s" % fn)
             with open(dirname + sent + "/" + fn) as f:
                 tokens = get_tokens(f.read())
                 data.append((tokens, sent))
@@ -30,12 +29,11 @@ def prepare_data(dirname, sample_size=None):
         Split sample size in half so we get ~half pos half neg
         """
         sample_size = int(sample_size/2)
-    print("Reading Positive examples...")
+
     posdata, posvocab = read_data(dirname, "pos", sample_size=sample_size)
-    print("Reading Negative examples...")
     negdata, negvocab = read_data(dirname, "neg", sample_size=sample_size)
     data = posdata + negdata
-    vocab = posvocab + negvocab
+    vocab = posvocab + negvocab + ["UNK"]
 
     random.shuffle(data)
 
