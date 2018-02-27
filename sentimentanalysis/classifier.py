@@ -86,8 +86,8 @@ def eval(preds, golds):
 
     return acc / len(golds)
 if __name__=='__main__':
-    EMBEDDING_DIM = 100
-    HIDDEN_DIM = 100
+    EMBEDDING_DIM = 300
+    HIDDEN_DIM = 300
 
     # Prepare data, and store ids
     print("Preparing data...")
@@ -103,7 +103,7 @@ if __name__=='__main__':
         model = model.cuda()
         loss_function = loss_function.cuda()
         
-    optimizer = optim.SGD(model.parameters(), lr=0.1)
+    optimizer = optim.SGD(model.parameters(), lr=0.05)
 
     #TODO Add batching
     #dataloader = DataLoader(data, batch_size=4,
@@ -148,9 +148,9 @@ if __name__=='__main__':
 
 
     """
-    TEST THE MODEL OVER THE FIRST 5000 pos examples and 5000 neg examples from the test docs
+    TEST THE MODEL OVER the test docs
     """
-    train_data, train_vocab = prepare_data("./aclimdb/test/", sample_size=10000)
+    train_data, train_vocab = prepare_data("./aclimdb/test/")
 
     # For tracking preds
     preds = []
