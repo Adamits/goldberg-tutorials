@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import torch
 import torch.autograd as autograd
 import torch.nn as nn
@@ -5,6 +7,12 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from data import prepare_data
+
+USE_CUDA = torch.cuda.is_available()
+
+dtype = torch.FloatTensor
+if USE_CUDA:
+        dtype = torch.cuda.FloatTensor
 
 class LSTMTagger(nn.Module):
 
@@ -34,8 +42,11 @@ class LSTMTagger(nn.Module):
         # the second indexes instances in the mini-batch,
         # and the third indexes elements of the input.
         # (num_layers, minibatch_size, hidden_dim)
-        return (autograd.Variable(torch.zeros(1, 1, self.hidden_dim)),
-                autograd.Variable(torch.zeros(1, 1, self.hidden_dim)))
+        if USE_CUDA:
+            return (autograd.Variable(torch.zeros(1, 1, self.hidden_dim).type(dtype)),
+                                    autograd.Variable(torch.zeros(1, 1, self.hidden_dim).type(dtype)))
+        else:
+            return (autograd.Variable(torch.zeros(1, 1, self.hidden_dim)), autograd.Variable(torch.zeros(1, 1, self.hidden_dim)))
 
     def forward(self, sentence):
         # Get the embeddings for each word
@@ -45,7 +56,7 @@ class LSTMTagger(nn.Module):
             embeds.view(len(sentence), 1, -1), self.hidden)
         # Compute score distribution
         sentiment_space = self.hidden2label(lstm_out[-1])
-        sentiment_scores = F.log_softmax(sentiment_space, dim=1)
+        sentiment_scores = F.log_softmax(sentiment_space)
 
         return sentiment_scores
 
@@ -73,13 +84,18 @@ if __name__=='__main__':
 
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word2id), len(sentiment2id))
     loss_function = nn.NLLLoss()
+
+    if USE_CUDA:
+        model = model.cuda()
+        loss_function = loss_function.cuda()
+        
     optimizer = optim.SGD(model.parameters(), lr=0.1)
 
     #TODO Add batching
     #dataloader = DataLoader(data, batch_size=4,
     #                    shuffle=True, num_workers=4)
 
-    for i, epoch in enumerate(range(100)):
+    for i, epoch in enumerate(range(25)):
         print("EPOCH %i" % i)
         loss_tracker = []
         for doc, sentiment in data:
@@ -99,6 +115,10 @@ if __name__=='__main__':
             doc_in = prepare_sequence(doc, word2id)
             label = prepare_label(sentiment, sentiment2id)
 
+            if USE_CUDA:
+                doc_in = doc_in.cuda()
+                label = label.cuda()
+
             # Step 3. Run our forward pass.
             pred = model(doc_in)
 
@@ -111,3 +131,15 @@ if __name__=='__main__':
             optimizer.step()
 
         print("AVERAGE LOSS: %2f" % (sum(loss_tracker)/(len(loss_tracker))))
+
+    train_data, train_vocab = prepare_data("./aclimdb/test/", sample_size=20)
+
+    for doc, sentiment in train_data:
+        doc_in = prepare_sequence(doc, word2id)
+        if USE_CUDA:
+            doc_in = doc_in.cuda()
+        pred=model(doc_in)
+        
+        print(doc)
+        print("TRUE SENTIMENT ID: %i", sentiment)
+        print("PREDICTED SENTIMENT SCORE: %i", pred)
