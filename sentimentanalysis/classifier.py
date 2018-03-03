@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from data import prepare_data
+from data import prepare_data, prepare_sequence, prepare_label, eval_preds
 
 USE_CUDA = torch.cuda.is_available()
 
@@ -60,38 +60,13 @@ class LSTMTagger(nn.Module):
 
         return sentiment_scores
 
-def prepare_sequence(seq, to_id):
-    """
-    Get a tensor of words
-    """
-    ids = []
-    for w in seq:
-        if w not in to_id.keys():
-            w = "UNK"
-
-        ids.append(to_id[w])
-
-    tensor = torch.LongTensor(ids)
-    return autograd.Variable(tensor)
-
-def prepare_label(label, to_id):
-    return autograd.Variable(torch.LongTensor([to_id[label]]))
-
-def eval(preds, golds):
-    acc = 0
-    for pred, gold in zip(preds, golds):
-        print(pred, gold)
-        if pred == gold:
-            acc += 1
-
-    return acc / len(golds)
 if __name__=='__main__':
     EMBEDDING_DIM = 100
     HIDDEN_DIM = 100
 
     # Prepare data, and store ids
     print("Preparing data...")
-    data, vocab = prepare_data("./aclimdb/train/")
+    data, vocab = prepare_data("./aclimdb/train/", sample_size=100)
     word2id = {w:i for i,w in enumerate(vocab)}
     sentiment2id = {"neg": 0, "pos": 1}
     id2sentiment = {0: "neg", 1: "pos"}
@@ -102,7 +77,7 @@ if __name__=='__main__':
     if USE_CUDA:
         model = model.cuda()
         loss_function = loss_function.cuda()
-        
+
     optimizer = optim.SGD(model.parameters(), lr=0.1)
 
     #TODO Add batching
@@ -150,7 +125,7 @@ if __name__=='__main__':
     """
     TEST THE MODEL OVER THE FIRST 5000 pos examples and 5000 neg examples from the test docs
     """
-    train_data, train_vocab = prepare_data("./aclimdb/test/", sample_size=10000)
+    train_data, train_vocab = prepare_data("./aclimdb/test/", sample_size=100)
 
     # For tracking preds
     preds = []
@@ -161,12 +136,12 @@ if __name__=='__main__':
             doc_in = doc_in.cuda()
         pred=model(" ".join(doc_in))
         # Get the predicted  class, from the log_softmax distribution
-        pred_label = pred.data.max(1)[1][0]        
+        pred_label = pred.data.max(1)[1][0]
         preds.append(pred_label)
         golds.append(sentiment2id[sentiment])
-        
+
         print(doc)
         print("TRUE SENTIMENT ID: %i" % sentiment2id[sentiment])
         print("PREDICTED SENTIMENT SCORE: %i" % pred_label)
 
-    print("Accuracy: %.4f%%" % eval(preds, golds))
+    print("Accuracy: %.4f%%" % eval_preds(preds, golds))

@@ -2,10 +2,8 @@ import os
 import random
 from nltk import word_tokenize
 
-
 def get_tokens(t):
     return [w.lower() for w in word_tokenize(t)]
-
 
 def read_data(dirname, sent, sample_size=None):
     data = []
@@ -38,3 +36,29 @@ def prepare_data(dirname, sample_size=None):
     random.shuffle(data)
 
     return (data, list(set(vocab)))
+
+def prepare_sequence(seq, to_id):
+    """
+    Get a tensor of words
+    """
+    ids = []
+    for w in seq:
+        if w not in to_id.keys():
+            w = "UNK"
+
+        ids.append(to_id[w])
+
+    tensor = torch.LongTensor(ids)
+    return autograd.Variable(tensor)
+
+def prepare_label(label, to_id):
+    return autograd.Variable(torch.LongTensor([to_id[label]]))
+
+def eval_preds(preds, golds):
+    acc = 0
+    for pred, gold in zip(preds, golds):
+        print(pred, gold)
+        if pred == gold:
+            acc += 1
+
+    return acc / len(golds)
