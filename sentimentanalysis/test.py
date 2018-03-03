@@ -7,9 +7,23 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from classifier import *
+
+import pickle
+
 from data import prepare_data, prepare_sequence, prepare_label, eval_preds
 
 if __name__=='__main__':
+    # LOAD DICTS
+    word2id_file = open('./models/word2id.pkl', 'rb')
+    word2id = pickle.load(word2id_file)
+    # Label dicts should be the same always..
+    sentiment2id = {"neg": 0, "pos": 1}
+    id2sentiment = {0: "neg", 1: "pos"}
+
+    # LOAD THE MODEL
+    model = torch.load("./models/sentiment_model")
+
     train_data, train_vocab = prepare_data("./aclimdb/test/", sample_size=100)
 
     # For tracking preds
@@ -19,7 +33,7 @@ if __name__=='__main__':
         doc_in = prepare_sequence(doc, word2id)
         if USE_CUDA:
             doc_in = doc_in.cuda()
-        pred=model(" ".join(doc_in))
+        pred=model(doc_in)
         # Get the predicted  class, from the log_softmax distribution
         pred_label = pred.data.max(1)[1][0]
         preds.append(pred_label)

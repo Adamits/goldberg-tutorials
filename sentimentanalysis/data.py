@@ -2,6 +2,12 @@ import os
 import random
 from nltk import word_tokenize
 
+import torch
+import torch.autograd as autograd
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+
 def get_tokens(t):
     return [w.lower() for w in word_tokenize(t)]
 

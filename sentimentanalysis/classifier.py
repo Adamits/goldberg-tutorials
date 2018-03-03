@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+import pickle
+
 from data import prepare_data, prepare_sequence, prepare_label, eval_preds
 
 USE_CUDA = torch.cuda.is_available()
@@ -67,9 +69,14 @@ if __name__=='__main__':
     # Prepare data, and store ids
     print("Preparing data...")
     data, vocab = prepare_data("./aclimdb/train/", sample_size=100)
+
     word2id = {w:i for i,w in enumerate(vocab)}
     sentiment2id = {"neg": 0, "pos": 1}
     id2sentiment = {0: "neg", 1: "pos"}
+
+    # Save the encoding dict for words
+    word2id_out = open('./models/word2id.pkl', 'wb')
+    pickle.dump(word2id, word2id_out)
 
     model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, len(word2id), len(sentiment2id))
     loss_function = nn.NLLLoss()
@@ -119,8 +126,10 @@ if __name__=='__main__':
             loss.backward()
             optimizer.step()
 
-        print("AVERAGE LOSS: %2f" % (sum(loss_tracker)/(len(loss_tracker))))
+            # Save the model at the end of each epoch, overwriting the last each time..
+            torch.save(model, "./models/sentiment_model")
 
+        print("AVERAGE LOSS: %2f" % (sum(loss_tracker)/(len(loss_tracker))))
 
     """
     TEST THE MODEL OVER the test docs
@@ -134,7 +143,7 @@ if __name__=='__main__':
         doc_in = prepare_sequence(doc, word2id)
         if USE_CUDA:
             doc_in = doc_in.cuda()
-        pred=model(" ".join(doc_in))
+        pred=model(doc_in)
         # Get the predicted  class, from the log_softmax distribution
         pred_label = pred.data.max(1)[1][0]
         preds.append(pred_label)
