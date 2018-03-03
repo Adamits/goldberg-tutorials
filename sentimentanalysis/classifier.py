@@ -61,8 +61,8 @@ class LSTMTagger(nn.Module):
         return sentiment_scores
 
 if __name__=='__main__':
-    EMBEDDING_DIM = 100
-    HIDDEN_DIM = 100
+    EMBEDDING_DIM = 300
+    HIDDEN_DIM = 300
 
     # Prepare data, and store ids
     print("Preparing data...")
@@ -123,7 +123,7 @@ if __name__=='__main__':
 
 
     """
-    TEST THE MODEL OVER THE FIRST 5000 pos examples and 5000 neg examples from the test docs
+    TEST THE MODEL OVER the test docs
     """
     train_data, train_vocab = prepare_data("./aclimdb/test/", sample_size=100)
 
