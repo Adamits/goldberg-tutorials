@@ -30,6 +30,7 @@ if __name__=='__main__':
 
     # LOAD THE MODEL
     model = torch.load(args.model)
+    model.hidden = model.init_hidden(1)
 
     train_data, train_vocab = prepare_data("./aclimdb/test/", sample_size=500)
 

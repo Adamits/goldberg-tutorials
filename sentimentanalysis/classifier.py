@@ -40,7 +40,7 @@ class LSTMTagger(nn.Module):
         self.hidden2label = nn.Linear(hidden_dim, label_size)
         self.hidden = self.init_hidden(1)
 
-    def init_hidden(self, batch_size):
+    def init_hidden(self, batch_size=1):
         # Before we've done anything, we dont have any hidden state.
         # Pytorch’s LSTM expects all of its inputs to be 3D tensors.
         # Note the tuple is of (C, H)
@@ -51,14 +51,14 @@ class LSTMTagger(nn.Module):
             return (autograd.Variable(torch.zeros(1, batch_size, self.hidden_dim)),
                                     autograd.Variable(torch.zeros(1, batch_size, self.hidden_dim)))
 
-    def forward(self, docs, input_lengths):
+    def forward(self, docs, batched=False):
         # Lookup the embeddings for each word.
-        # Need to transpose so that batch_size is second dim
-        embeds = self.word_embeddings(docs.t())
-        #packed = torch.nn.utils.rnn.pack_padded_sequence(embeds, input_lengths)
+        embeds = self.word_embeddings(docs)
         # Run the LSTM
-        lstm_out, self.hidden = self.lstm(embeds, self.hidden)
-        #lstm_out, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(lstm_out) # unpack (back to padded)
+        if batched:
+            lstm_out, self.hidden = self.lstm(embeds, self.hidden)
+        else:
+            lstm_out, self.hidden = self.lstm(embeds.view(len(docs), 1, -1), self.hidden)
 
         # Compute score distribution
         sentiment_space = self.hidden2label(lstm_out[-1])
@@ -113,7 +113,9 @@ def train(batch, model, optimizer, loss_function):
     # detaching it from its history on the last instance.
     model.hidden = model.init_hidden(batch.size)
 
-    preds = model(batch.input, batch.lengths)
+    # Need to transpose so that batch_size is second dim
+    preds = model(batch.input.t(), batched=True)
+
     # Step 4. Pass in the computed scores, and true targets
     # to compute the loss, gradients, and update the parameters by
     # calling optimizer.step().
