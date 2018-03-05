@@ -199,6 +199,8 @@ if __name__=='__main__':
         doc_in = prepare_test_sequence(doc, word2id)
         if USE_CUDA:
             doc_in = doc_in.cuda()
+
+        model.hidden = model.init_hidden(1)
         pred = model(doc_in)
         # Get the predicted  class, from the log_softmax distribution
         pred_label = pred.data.max(1)[1][0]
