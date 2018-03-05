@@ -18,7 +18,7 @@ dtype = torch.FloatTensor
 if USE_CUDA:
         dtype = torch.cuda.FloatTensor
 
-NUM_SAMPLES = 600
+NUM_SAMPLES = 100
 
 class LSTMTagger(nn.Module):
 
