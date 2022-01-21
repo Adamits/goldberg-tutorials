@@ -18,7 +18,7 @@ gensim==3.3.0
 html5lib==1.0b8
 idna==2.6
 ipykernel==4.6.1
-ipython==6.1.0
+ipython==7.16.3
 ipython-genutils==0.2.0
 jedi==0.11.1
 jmespath==0.9.3
